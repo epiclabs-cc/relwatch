@@ -1,0 +1,9 @@
+{{define "content"}}
+<h1>Overview</h1>
+{{if .LastChecked}}<p class="meta">Last checked {{date .LastChecked}}</p>{{end}}
+<div class="cards">
+  <a class="card" href="/projects"><strong>{{.ProjectCount}}</strong><span>Projects</span></a>
+  <a class="card" href="/images"><strong>{{.ImageCount}}</strong><span>Images</span></a>
+  <a class="card" href="/feeds"><strong>{{.FeedCount}}</strong><span>Feeds</span></a>
+</div>
+{{end}}

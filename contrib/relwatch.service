@@ -1,0 +1,27 @@
+[Unit]
+Description=relwatch — poll providers and email release digests
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=relwatch
+Group=relwatch
+WorkingDirectory=__PREFIX__
+ExecStart=__PREFIX__/relwatch serve \
+  --config __CONFIG_FILE__
+Restart=on-failure
+RestartSec=10s
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=__DATA_DIR__
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+PrivateDevices=yes
+CapabilityBoundingSet=
+SystemCallFilter=@system-service
+
+[Install]
+WantedBy=multi-user.target

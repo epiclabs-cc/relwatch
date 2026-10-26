@@ -1,0 +1,61 @@
+# relwatch settings — copy to `settings.conf` and edit.
+#
+# Where this file is found (first match wins):
+#   --config flag  >  $RELWATCH_CONFIG  >  /etc/relwatch/settings.conf (system)
+#   >  ./settings.conf (local)  >  ~/.config/relwatch/settings.conf (user)
+#
+# SMTP settings optional: `serve` polls and reports even without SMTP enabled.
+# When enabled, one digest email is sent after each poll that finds new releases.
+
+# Database path. Relative paths resolve against this file's directory and a
+# leading ~ is expanded. When unset, a default is chosen by install mode:
+#   system → /var/lib/relwatch/relwatch.db
+#   user   → ~/.local/share/relwatch/relwatch.db
+#   local  → ./relwatch.db
+# Precedence: --db flag > $RELWATCH_DB > this key > install-mode default.
+# db: "/var/lib/relwatch/relwatch.db"
+
+# Poll schedule for `serve` as a 5-field cron expression.
+# Precedence: --schedule flag > RELWATCH_SCHEDULE env > this key > default "0 * * * *".
+schedule: "0 * * * *"
+
+smtp:
+  enabled: false
+  host: "smtp.example.com"
+  port: 587
+  # tls: transport for the SMTP connection.
+  #   auto      (default) STARTTLS on 587, implicit TLS (SMTPS) on 465
+  #   starttls  require/opportunistically upgrade via STARTTLS
+  #   implicit  implicit TLS from the first byte (SMTPS, typically port 465)
+  #   none      plain connection (only for trusted/local relays)
+  tls: "auto"
+  # username: "relwatch@example.com"
+  # password: "your-smtp-password"
+  from: "relwatch@example.com"
+  to:
+    - "you@example.com"
+
+# Optional web dashboard + JSON API, served by `serve` (see docs/web.md and
+# docs/api.md). Disabled unless `enabled: true` (or the --http flag /
+# RELWATCH_HTTP_ADDR override the address, which also enables it).
+http:
+  enabled: false
+  # listen: bind address. Keep it on loopback unless a reverse proxy fronts it.
+  listen: "127.0.0.1:8080"
+  # token: optional bearer token; when set, every request must send
+  #   Authorization: Bearer <token>. Recommended if you bind beyond loopback.
+  # token: "change-me"
+
+# Update server `serve` checks for newer releases (GitHub's latest-release
+# endpoint). Precedence: --update-server flag > RELWATCH_UPDATE_SERVER env >
+# this key > default.
+update:
+  server: "https://api.github.com/repos/epiclabs-cc/relwatch/releases/latest"
+
+# Notes
+# - `enabled: false` until you're ready.
+# - STARTTLS is used when the server advertises it; PLAIN AUTH with username/password.
+# - Port 465 uses implicit TLS automatically (or force it with tls: "implicit").
+# - The HTTP listener serves the web dashboard and the JSON API, sharing the
+#   same database as the poller.
+# - Keep this file out of git (it contains credentials); commit only settings.conf.example.

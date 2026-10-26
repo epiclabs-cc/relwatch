@@ -1,0 +1,41 @@
+{{define "layout"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} — RelWatch</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="/">Rel<span>Watch</span></a>
+    <nav>
+      <a href="/">Overview</a>
+      <a href="/projects">Projects</a>
+      <a href="/images">Images</a>
+      <a href="/feeds">Feeds</a>
+    </nav>
+    {{if .Email}}
+    <div class="user-menu" tabindex="0">
+      <button class="avatar" type="button" aria-haspopup="true" aria-expanded="false">{{initial .Email}}</button>
+      <div class="dropdown" role="menu">
+        <span class="dropdown-email">{{.Email}}</span>
+        <form method="post" action="/logout" class="inline">
+          <input type="hidden" name="csrf" value="{{.CSRF}}">
+          <button type="submit" class="logout">Log out</button>
+        </form>
+      </div>
+    </div>
+    {{end}}
+  </div>
+</header>
+<main>
+{{template "content" .}}
+</main>
+<footer>RelWatch {{.Version}}</footer>
+<script src="/static/app.js" defer></script>
+</body>
+</html>
+{{end}}

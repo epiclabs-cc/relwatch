@@ -1,0 +1,12 @@
+bin/
+site/
+*.db
+*.db-wal
+*.db-shm
+session-*.md
+scripts/fix-ownership
+scripts/git-push-tag
+settings.conf
+# Local planning/tracking docs — kept out of the public repo.
+TODO.md
+PLATFORM.md

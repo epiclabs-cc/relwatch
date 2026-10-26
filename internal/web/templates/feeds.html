@@ -1,0 +1,51 @@
+{{define "content"}}
+<div class="page-header">
+  <h1>Feeds</h1>
+  <button type="button" class="btn" data-open-dialog="#add-feed">Add Feed</button>
+</div>
+
+<dialog id="add-feed" class="modal" {{if .Error}}open{{end}}>
+  <form method="post" action="/feeds">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <h2>Add Feed</h2>
+    {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+    <div class="fields">
+      <input name="name" placeholder="name" required>
+      <input name="url" type="url" placeholder="https://…/feed.xml" required>
+    </div>
+    <div class="modal-actions">
+      <button type="button" data-close-dialog>Cancel</button>
+      <button type="submit">Add</button>
+    </div>
+  </form>
+</dialog>
+
+{{if .Feeds}}
+<table>
+<thead>
+<tr>
+  {{range .Headers}}<th><a href="{{.Href}}">{{.Label}}{{if .Arrow}} <span class="arrow">{{.Arrow}}</span>{{end}}</a></th>{{end}}
+  <th></th>
+</tr>
+</thead>
+<tbody>
+{{range .Feeds}}
+<tr>
+  <td><a href="/feeds/{{.ID}}">{{.Name}}</a></td>
+  <td>{{.URL}}</td>
+  <td>{{.LatestTag}}</td>
+  <td>{{date .LatestReleasedAt}}</td>
+  <td>
+    <form method="post" action="/feeds/{{.ID}}/delete" class="inline">
+      <input type="hidden" name="csrf" value="{{$.CSRF}}">
+      <button type="submit" class="danger">Remove</button>
+    </form>
+  </td>
+</tr>
+{{end}}
+</tbody>
+</table>
+{{else}}
+<p class="empty">No feeds tracked yet.</p>
+{{end}}
+{{end}}

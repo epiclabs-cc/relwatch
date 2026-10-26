@@ -1,0 +1,23 @@
+{{define "content"}}
+<h1>{{.Feed.Name}}</h1>
+<p class="meta">{{.Feed.URL}}</p>
+<h2>Releases</h2>
+{{if .Releases}}
+<table>
+<thead>
+<tr><th>Title</th><th>Published</th><th></th></tr>
+</thead>
+<tbody>
+{{range .Releases}}
+<tr>
+  <td>{{.Name}}</td>
+  <td>{{date .PublishedAt}}</td>
+  <td>{{if .URL}}<a href="{{.URL}}">link</a>{{end}}</td>
+</tr>
+{{end}}
+</tbody>
+</table>
+{{else}}
+<p class="empty">No releases recorded yet.</p>
+{{end}}
+{{end}}

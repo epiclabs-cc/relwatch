@@ -1,0 +1,24 @@
+{{define "content"}}
+<h1>{{.Image.Name}}</h1>
+<p class="meta">{{.Image.Registry}}/{{.Image.Repo}}</p>
+<p>Latest: {{.Image.LatestTag}}{{if .Image.LatestDigest}} · <span title="{{.Image.LatestDigest}}">{{short .Image.LatestDigest}}</span>{{end}}</p>
+<h2>Digests</h2>
+{{if .Digests}}
+<table>
+<thead>
+<tr><th>Tag</th><th>Digest</th><th>Observed</th></tr>
+</thead>
+<tbody>
+{{range .Digests}}
+<tr>
+  <td>{{.Tag}}</td>
+  <td><span title="{{.Digest}}">{{short .Digest}}</span></td>
+  <td>{{date .ObservedAt}}</td>
+</tr>
+{{end}}
+</tbody>
+</table>
+{{else}}
+<p class="empty">No digests recorded yet.</p>
+{{end}}
+{{end}}

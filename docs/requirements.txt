@@ -1,0 +1,3 @@
+# Documentation toolchain — CI-only (see the `docs` job in .gitlab-ci.yml).
+# These are not compiled into the relwatch Go binary.
+mkdocs-material==9.7.7

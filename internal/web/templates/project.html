@@ -1,0 +1,26 @@
+{{define "content"}}
+<h1>{{.Project.Name}}</h1>
+<p class="meta">{{.Project.Provider}} · {{.Project.Repo}}{{if .Project.InstanceURL}} · {{.Project.InstanceURL}}{{end}}</p>
+{{if .Project.LatestURL}}<p>Latest: <a href="{{.Project.LatestURL}}">{{.Project.LatestTag}}</a></p>{{else}}<p>Latest: {{.Project.LatestTag}}</p>{{end}}
+<h2>Releases</h2>
+{{if .Releases}}
+<table>
+<thead>
+<tr><th>Tag</th><th>Name</th><th>Published</th><th>Prerelease</th><th></th></tr>
+</thead>
+<tbody>
+{{range .Releases}}
+<tr>
+  <td>{{.Tag}}</td>
+  <td>{{.Name}}</td>
+  <td>{{date .PublishedAt}}</td>
+  <td>{{if .IsPrerelease}}yes{{end}}</td>
+  <td>{{if .URL}}<a href="{{.URL}}">link</a>{{end}}</td>
+</tr>
+{{end}}
+</tbody>
+</table>
+{{else}}
+<p class="empty">No releases recorded yet.</p>
+{{end}}
+{{end}}
