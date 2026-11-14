@@ -7,10 +7,11 @@
 #                                           example → settings.conf only if absent)
 #   /var/lib/relwatch/                 # sqlite db (declare as a volume)
 #
-# `serve` is schedule-driven (cron) with SMTP digest email as the only egress,
-# so the image exposes no HTTP port — mount a volume for /var/lib/relwatch
-# and set a schedule via env/flag/settings.conf as needed (precedence:
-# flag > env > settings.conf `schedule:` > default "0 * * * *").
+# `serve` is schedule-driven (cron) with SMTP digest email as the only egress
+# by default — mount a volume for /var/lib/relwatch and set a schedule via
+# env/flag/settings.conf as needed (precedence: flag > env > settings.conf
+# `schedule:` > default "0 * * * *"). The dashboard/API listener is opt-in:
+# set RELWATCH_HTTP_ADDR=0.0.0.0:8080 and publish the port (docs/deployment.md).
 
 FROM golang:1.26-alpine AS build
 ARG RELWATCH_VERSION=dev

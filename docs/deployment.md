@@ -111,16 +111,41 @@ docker run -d \
   `-X` version ldflag as the release Makefile, then the runtime stage is a
   minimal `alpine` image running as non-root (`relwatch` user, uid/gid 10001
   unless overridden with `--build-arg RELWATCH_UID/GID`).
-- The image contains no HTTP listener — `serve` is cron + SMTP-outbound only,
-  so nothing to expose.
 - **Mount your `settings.conf` at `/etc/relwatch/settings.conf`** (it holds
   the SMTP password and is gitignored); the example at
   `/etc/relwatch/settings.conf.example` exists only to guide a first boot.
-  The entrypoint quietly adopts the mounted file.
+  The entrypoint quietly adopts the mounted file. `.dockerignore` keeps the
+  local `settings.conf` (and any `*.db`) out of the build context, so secrets
+  never land in the image or build cache.
 - Persist the DB in a volume at `/var/lib/relwatch`.
 
 `schedule` precedence is identical to the systemd path (flag > env >
 `settings.conf schedule:` > hourly default).
+
+#### Dashboard and API in Docker
+
+By default `serve` exposes nothing. To enable the [web dashboard](web.md) and
+[JSON API](api.md), listen on all interfaces *inside* the container — the
+default `127.0.0.1:8080` is the container's own loopback, which a published
+port cannot reach — and choose exposure with `-p` on the host side:
+
+```sh
+docker run -d \
+  --name relwatch \
+  -e RELWATCH_HTTP_ADDR=0.0.0.0:8080 \
+  -p 127.0.0.1:8080:8080 \
+  -v "$(pwd)/settings.conf:/etc/relwatch/settings.conf:ro" \
+  -v relwatch-db:/var/lib/relwatch \
+  relwatch
+
+docker exec -it relwatch /opt/relwatch/relwatch user add you@example.com
+```
+
+- `RELWATCH_HTTP_ADDR` also enables the listener, so `http.enabled` in
+  `settings.conf` can stay `false`.
+- `-p 127.0.0.1:8080:8080` keeps it host-local; use `-p 8080:8080` to expose
+  it on the network, and set `http.token` to protect the API.
+- `user add` creates the dashboard login in the shared database volume.
 
 ### Plain binary
 

@@ -1,0 +1,17 @@
+# Keep secrets, local state, and build output out of the Docker build context.
+# settings.conf holds the SMTP password; mount it at runtime instead.
+settings.conf
+*.db
+*.db-wal
+*.db-shm
+
+.git
+bin/
+site/
+
+# Editor and local scratch files
+**/*.swp
+**/.DS_Store
+session-*.md
+TODO.md
+PLATFORM.md
