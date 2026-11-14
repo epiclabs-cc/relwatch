@@ -1,10 +1,19 @@
 package cli
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
+
+	"relwatch/internal/config"
+	"relwatch/internal/notify"
 )
 
 func newConfigCmd(opts *options) *cobra.Command {
@@ -12,7 +21,7 @@ func newConfigCmd(opts *options) *cobra.Command {
 		Use:   "config",
 		Short: "Inspect the resolved configuration",
 	}
-	cmd.AddCommand(newConfigPathCmd(opts))
+	cmd.AddCommand(newConfigPathCmd(opts), newConfigTestSMTPCmd(opts))
 	return cmd
 }
 
@@ -38,4 +47,68 @@ func newConfigPathCmd(opts *options) *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func newConfigTestSMTPCmd(opts *options) *cobra.Command {
+	var to []string
+	var timeout time.Duration
+	cmd := &cobra.Command{
+		Use:   "test-smtp",
+		Short: "Send a test email using the resolved SMTP settings",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
+			defer cancel()
+			return sendTestEmail(ctx, opts.cfg.SMTP, to, opts.configPath, cmd.OutOrStdout(), cmd.ErrOrStderr(), newSMTPSender)
+		},
+	}
+	cmd.Flags().StringSliceVar(&to, "to", nil, "recipient address (repeatable; overrides smtp.to)")
+	cmd.Flags().DurationVar(&timeout, "timeout", 30*time.Second, "give up if the SMTP exchange takes longer than this")
+	return cmd
+}
+
+func newSMTPSender(cfg config.SMTPConfig) (notify.Sender, error) {
+	return notify.NewSMTP(cfg)
+}
+
+func sendTestEmail(ctx context.Context, cfg config.SMTPConfig, to []string, configPath string, out, errOut io.Writer, newSender func(config.SMTPConfig) (notify.Sender, error)) error {
+	if len(to) == 0 {
+		to = cfg.To
+	}
+	if len(to) == 0 {
+		return errors.New("no recipients: set smtp.to or pass --to")
+	}
+	if !cfg.Enabled {
+		fmt.Fprintln(errOut, "note: smtp.enabled is false; serve will not send digests")
+	}
+	sender, err := newSender(cfg)
+	if err != nil {
+		return fmt.Errorf("smtp settings: %w", err)
+	}
+
+	server := smtpServerLabel(cfg)
+	source := configPath
+	if source == "" {
+		source = "(none)"
+	}
+	tlsMode := cfg.TLS
+	if tlsMode == "" {
+		tlsMode = "auto"
+	}
+	body := fmt.Sprintf("This is a test email from relwatch.\n\nIf you received it, your SMTP settings work.\n\nconfig: %s\nserver: %s\ntls:    %s\nsent:   %s\n",
+		source, server, tlsMode, time.Now().Format(time.RFC1123Z))
+	msg := notify.Message{Subject: "relwatch: SMTP test", Body: body, To: to}
+	if err := sender.Send(ctx, msg); err != nil {
+		return fmt.Errorf("sending test email: %w", err)
+	}
+	fmt.Fprintf(out, "sent test email to %s via %s (config: %s)\n", strings.Join(to, ", "), server, source)
+	return nil
+}
+
+func smtpServerLabel(cfg config.SMTPConfig) string {
+	host := strings.TrimSpace(cfg.Host)
+	if cfg.Port == 0 {
+		return host + " (default port)"
+	}
+	return host + ":" + strconv.Itoa(cfg.Port)
 }

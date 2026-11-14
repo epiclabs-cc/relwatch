@@ -216,6 +216,7 @@ Run `relwatch --help` at any time; the most common:
 ```sh
 relwatch init [--non-interactive] [--db PATH]  # create a user settings.conf
 relwatch config path                            # show resolved config + db
+relwatch config test-smtp [--to ADDR]           # send a test email with the resolved SMTP settings
 relwatch project add NAME OWNER/REPO --provider github|gitlab|gitea [--instance-url URL]
 relwatch project remove ID|NAME|OWNER/REPO
 relwatch feed add NAME URL

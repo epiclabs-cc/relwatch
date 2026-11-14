@@ -88,7 +88,26 @@ smtp:
 - **Never commit `settings.conf`** — it holds credentials. Only the
   `settings.conf.example` template is tracked.
 
+### Test your settings
+
+Send a test email right away instead of waiting for a poll to find a release:
+
+```sh
+relwatch config test-smtp                       # send to smtp.to
+relwatch config test-smtp --to you@example.com  # send somewhere else (repeatable)
+```
+
+It uses the same resolved config as `serve` (honors `--config`), prints the
+recipients and server on success, and exits non-zero with the SMTP error
+(connection, TLS, auth, rejected recipient) on failure. It works even while
+`enabled: false`, so you can check settings before turning digests on; a note
+on stderr reminds you that `serve` won't send until you enable it. Give up
+sooner on an unreachable server with `--timeout 10s` (default `30s`).
+
 ## Troubleshooting
+
+- **Not sure SMTP works?** — run `relwatch config test-smtp`; it reports the
+  exact failure (`smtp: dial ...`, `smtp: auth: 535 ...`, etc.).
 
 - **No email, but `serve` is running** — SMTP isn't enabled, or there were no
   new releases that run (check stderr: `serve` logs the check/digest to
