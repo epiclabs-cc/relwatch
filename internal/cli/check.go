@@ -25,7 +25,7 @@ func newCheckCmd(opts *options) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "check",
-		Short: "Check tracked projects for new releases",
+		Short: "Check tracked projects, images, and feeds for new releases",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			includePrereleases, err := resolvePrereleases(prereleases, opts.cfg)
 			if err != nil {
@@ -38,8 +38,8 @@ func newCheckCmd(opts *options) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&target, "project", "", "project ID, name, or owner/repo (default: all)")
-	cmd.Flags().StringVar(&provider, "provider", "", "only check projects of this provider (github, gitlab, gitea)")
+	cmd.Flags().StringVar(&target, "project", "", "only check this project: ID, name, or owner/repo (images and feeds are always checked)")
+	cmd.Flags().StringVar(&provider, "provider", "", "only check projects of this provider: github, gitlab, gitea (images and feeds are always checked)")
 	cmd.Flags().BoolVar(&prereleases, "prereleases", false, "include pre-release versions (opt-in; flag > env RELWATCH_PRERELEASES > settings.prereleases > default skip)")
 	return cmd
 }
@@ -200,8 +200,6 @@ func checkAll(ctx context.Context, opts *options, st *store.Store, target, provi
 
 			checked++
 		}
-	} else {
-		fmt.Fprintf(errOut, "no projects tracked in %s; add one with: relwatch project add <name> <owner/repo>\n", opts.dbPath)
 	}
 
 	// v0.4.0 Feature 3: poll tracked container images through the single
@@ -210,6 +208,7 @@ func checkAll(ctx context.Context, opts *options, st *store.Store, target, provi
 	if err != nil {
 		return newReleases, err
 	}
+	imagesChecked := 0
 	if len(images) > 0 {
 		regFactory := registry.NewFactory(registry.Config{
 			Scheme: opts.registryScheme,
@@ -255,6 +254,7 @@ func checkAll(ctx context.Context, opts *options, st *store.Store, target, provi
 					})
 				}
 			}
+			imagesChecked++
 		}
 	}
 
@@ -263,6 +263,7 @@ func checkAll(ctx context.Context, opts *options, st *store.Store, target, provi
 	if err != nil {
 		return newReleases, err
 	}
+	feedsChecked := 0
 	for _, f := range feeds {
 		prov, err := factory.For("rss", "")
 		if err != nil {
@@ -318,11 +319,39 @@ func checkAll(ctx context.Context, opts *options, st *store.Store, target, provi
 				})
 			}
 		}
+		feedsChecked++
 	}
 
-	fmt.Printf("Checked %d of %d project(s)\n", checked, len(selected))
+	if len(projects) == 0 && len(images) == 0 && len(feeds) == 0 {
+		fmt.Fprintf(errOut, "nothing tracked in %s; add one with: relwatch project add, relwatch image add, or relwatch feed add\n", opts.dbPath)
+	}
+	fmt.Println(checkSummary(
+		checkCount{"project(s)", checked, len(selected)},
+		checkCount{"image(s)", imagesChecked, len(images)},
+		checkCount{"feed(s)", feedsChecked, len(feeds)},
+	))
 	if err := st.SetMeta("last_checked_at", strconv.FormatInt(time.Now().Unix(), 10)); err != nil {
 		fmt.Fprintf(errOut, "relwatch: failed to record check time: %v\n", err)
 	}
 	return newReleases, nil
+}
+
+type checkCount struct {
+	label   string
+	checked int
+	total   int
+}
+
+func checkSummary(counts ...checkCount) string {
+	parts := []string{}
+	for _, c := range counts {
+		if c.total == 0 {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%d of %d %s", c.checked, c.total, c.label))
+	}
+	if len(parts) == 0 {
+		return "Checked nothing"
+	}
+	return "Checked " + strings.Join(parts, ", ")
 }
