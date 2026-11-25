@@ -111,7 +111,7 @@ func TestResolveTLSMode(t *testing.T) {
 	cases := []struct {
 		raw  string
 		port int
-		want tlsMode
+		want string
 	}{
 		{"", 587, tlsStartTLS},
 		{"auto", 587, tlsStartTLS},

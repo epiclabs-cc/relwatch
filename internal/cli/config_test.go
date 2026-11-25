@@ -41,7 +41,9 @@ func testSMTPConfig() config.SMTPConfig {
 func TestSendTestEmailUsesConfiguredRecipients(t *testing.T) {
 	s := &stubSender{}
 	var out, errOut bytes.Buffer
-	if err := sendTestEmail(context.Background(), testSMTPConfig(), nil, "/etc/relwatch/settings.conf", &out, &errOut, stubFactory(s)); err != nil {
+	cfg := testSMTPConfig()
+	cfg.Port = 0
+	if err := sendTestEmail(context.Background(), cfg, nil, "/etc/relwatch/settings.conf", &out, &errOut, stubFactory(s)); err != nil {
 		t.Fatal(err)
 	}
 	if len(s.sent) != 1 {
@@ -54,10 +56,10 @@ func TestSendTestEmailUsesConfiguredRecipients(t *testing.T) {
 	if msg.Subject != "relwatch: SMTP test" {
 		t.Fatalf("subject = %q", msg.Subject)
 	}
-	if !strings.Contains(msg.Body, "smtp.example.com:587") || !strings.Contains(msg.Body, "/etc/relwatch/settings.conf") {
+	if !strings.Contains(msg.Body, "smtp.example.com:587") || !strings.Contains(msg.Body, "starttls (opportunistic)") || !strings.Contains(msg.Body, "/etc/relwatch/settings.conf") {
 		t.Fatalf("body missing server/config: %q", msg.Body)
 	}
-	want := "sent test email to a@example.com, b@example.com via smtp.example.com:587 (config: /etc/relwatch/settings.conf)\n"
+	want := "sent test email to a@example.com, b@example.com via smtp.example.com:587 using starttls (opportunistic) (config: /etc/relwatch/settings.conf)\n"
 	if out.String() != want {
 		t.Fatalf("out = %q, want %q", out.String(), want)
 	}
@@ -69,7 +71,7 @@ func TestSendTestEmailUsesConfiguredRecipients(t *testing.T) {
 func TestSendTestEmailToOverridesConfig(t *testing.T) {
 	s := &stubSender{}
 	var out, errOut bytes.Buffer
-	if err := sendTestEmail(context.Background(), testSMTPConfig(), []string{"c@example.com"}, "x", &out, &errOut, stubFactory(s)); err != nil {
+	if err := sendTestEmail(context.Background(), testSMTPConfig(), []string{" c@example.com ", ""}, "x", &out, &errOut, stubFactory(s)); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(s.sent[0].To, []string{"c@example.com"}) {
@@ -79,7 +81,7 @@ func TestSendTestEmailToOverridesConfig(t *testing.T) {
 
 func TestSendTestEmailNoRecipients(t *testing.T) {
 	cfg := testSMTPConfig()
-	cfg.To = nil
+	cfg.To = []string{" "}
 	called := false
 	factory := func(config.SMTPConfig) (notify.Sender, error) {
 		called = true
@@ -125,9 +127,13 @@ func TestSendTestEmailErrors(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			var out, errOut bytes.Buffer
-			err := sendTestEmail(context.Background(), testSMTPConfig(), nil, "x", &out, &errOut, tc.factory)
+			cfg := testSMTPConfig()
+			err := sendTestEmail(context.Background(), cfg, nil, "x", &out, &errOut, tc.factory)
 			if !errors.Is(err, tc.want) {
 				t.Fatalf("err = %v, want wrapping %v", err, tc.want)
+			}
+			if strings.Contains(err.Error(), cfg.Password) {
+				t.Fatal("returned error contains password")
 			}
 			if out.Len() != 0 {
 				t.Fatalf("unexpected success output: %q", out.String())
@@ -151,11 +157,27 @@ func TestSendTestEmailNeverLeaksPassword(t *testing.T) {
 	}
 }
 
-func TestSMTPServerLabel(t *testing.T) {
-	if got := smtpServerLabel(config.SMTPConfig{Host: "mx.example.com"}); got != "mx.example.com (default port)" {
-		t.Fatalf("got %q", got)
+func TestSendTestEmailEmptyOverrideFallsBack(t *testing.T) {
+	cfg := testSMTPConfig()
+	cfg.To = []string{"", " a@example.com "}
+	cfg.Host, cfg.Port, cfg.TLS = "::1", 0, "smtps"
+	s := &stubSender{}
+	var out, errOut bytes.Buffer
+	if err := sendTestEmail(context.Background(), cfg, []string{" "}, "", &out, &errOut, stubFactory(s)); err != nil {
+		t.Fatal(err)
 	}
-	if got := smtpServerLabel(config.SMTPConfig{Host: "mx.example.com", Port: 465}); got != "mx.example.com:465" {
-		t.Fatalf("got %q", got)
+	if !reflect.DeepEqual(s.sent[0].To, []string{"a@example.com"}) || !strings.Contains(out.String(), "[::1]:465 using implicit") {
+		t.Fatalf("recipients = %v, output = %q", s.sent[0].To, out.String())
+	}
+}
+
+func TestConfigTestSMTPRejectsNonpositiveTimeout(t *testing.T) {
+	for _, timeout := range []string{"0", "-1s"} {
+		cmd := newConfigTestSMTPCmd(&options{})
+		cmd.SilenceUsage, cmd.SilenceErrors = true, true
+		cmd.SetArgs([]string{"--timeout", timeout})
+		if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "--timeout") {
+			t.Fatalf("timeout %s: got %v, want a flag error", timeout, err)
+		}
 	}
 }

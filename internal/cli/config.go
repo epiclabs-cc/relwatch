@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -57,6 +56,9 @@ func newConfigTestSMTPCmd(opts *options) *cobra.Command {
 		Short: "Send a test email using the resolved SMTP settings",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if timeout <= 0 {
+				return errors.New("--timeout must be greater than zero")
+			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
 			defer cancel()
 			return sendTestEmail(ctx, opts.cfg.SMTP, to, opts.configPath, cmd.OutOrStdout(), cmd.ErrOrStderr(), newSMTPSender)
@@ -72,8 +74,9 @@ func newSMTPSender(cfg config.SMTPConfig) (notify.Sender, error) {
 }
 
 func sendTestEmail(ctx context.Context, cfg config.SMTPConfig, to []string, configPath string, out, errOut io.Writer, newSender func(config.SMTPConfig) (notify.Sender, error)) error {
+	to = cleanRecipients(to)
 	if len(to) == 0 {
-		to = cfg.To
+		to = cleanRecipients(cfg.To)
 	}
 	if len(to) == 0 {
 		return errors.New("no recipients: set smtp.to or pass --to")
@@ -86,14 +89,16 @@ func sendTestEmail(ctx context.Context, cfg config.SMTPConfig, to []string, conf
 		return fmt.Errorf("smtp settings: %w", err)
 	}
 
-	server := smtpServerLabel(cfg)
+	server, tlsMode, err := notify.Transport(cfg)
+	if err != nil {
+		return fmt.Errorf("smtp settings: %w", err)
+	}
+	if tlsMode == "starttls" {
+		tlsMode += " (opportunistic)"
+	}
 	source := configPath
 	if source == "" {
 		source = "(none)"
-	}
-	tlsMode := cfg.TLS
-	if tlsMode == "" {
-		tlsMode = "auto"
 	}
 	body := fmt.Sprintf("This is a test email from relwatch.\n\nIf you received it, your SMTP settings work.\n\nconfig: %s\nserver: %s\ntls:    %s\nsent:   %s\n",
 		source, server, tlsMode, time.Now().Format(time.RFC1123Z))
@@ -101,14 +106,16 @@ func sendTestEmail(ctx context.Context, cfg config.SMTPConfig, to []string, conf
 	if err := sender.Send(ctx, msg); err != nil {
 		return fmt.Errorf("sending test email: %w", err)
 	}
-	fmt.Fprintf(out, "sent test email to %s via %s (config: %s)\n", strings.Join(to, ", "), server, source)
+	fmt.Fprintf(out, "sent test email to %s via %s using %s (config: %s)\n", strings.Join(to, ", "), server, tlsMode, source)
 	return nil
 }
 
-func smtpServerLabel(cfg config.SMTPConfig) string {
-	host := strings.TrimSpace(cfg.Host)
-	if cfg.Port == 0 {
-		return host + " (default port)"
+func cleanRecipients(recipients []string) []string {
+	var result []string
+	for _, recipient := range recipients {
+		if trimmed := strings.TrimSpace(recipient); trimmed != "" {
+			result = append(result, trimmed)
+		}
 	}
-	return host + ":" + strconv.Itoa(cfg.Port)
+	return result
 }

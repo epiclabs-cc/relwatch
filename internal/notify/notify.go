@@ -40,12 +40,10 @@ type Sender interface {
 	Send(ctx context.Context, msg Message) error
 }
 
-type tlsMode int
-
 const (
-	tlsStartTLS tlsMode = iota
-	tlsImplicit
-	tlsNone
+	tlsStartTLS = "starttls"
+	tlsImplicit = "implicit"
+	tlsNone     = "none"
 )
 
 type SMTP struct {
@@ -53,13 +51,13 @@ type SMTP struct {
 	host    string
 	from    string
 	auth    smtp.Auth
-	mode    tlsMode
+	mode    string
 }
 
 // resolveTLSMode maps the settings `smtp.tls` value onto a transport mode.
 // Empty/"auto" picks implicit TLS on the implicit-TLS port (465) and
 // opportunistic STARTTLS everywhere else. Unknown values are rejected.
-func resolveTLSMode(raw string, port int) (tlsMode, error) {
+func resolveTLSMode(raw string, port int) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "", "auto":
 		if port == implicitTLSPort {
@@ -73,17 +71,14 @@ func resolveTLSMode(raw string, port int) (tlsMode, error) {
 	case "none", "plain":
 		return tlsNone, nil
 	default:
-		return 0, fmt.Errorf("smtp: unknown tls mode %q (want auto, starttls, implicit, or none)", raw)
+		return "", fmt.Errorf("smtp: unknown tls mode %q (want auto, starttls, implicit, or none)", raw)
 	}
 }
 
-func NewSMTP(cfg config.SMTPConfig) (*SMTP, error) {
+func Transport(cfg config.SMTPConfig) (address, mode string, err error) {
 	host := strings.TrimSpace(cfg.Host)
 	if host == "" {
-		return nil, errors.New("smtp: host is required")
-	}
-	if strings.TrimSpace(cfg.From) == "" {
-		return nil, errors.New("smtp: from is required")
+		return "", "", errors.New("smtp: host is required")
 	}
 	port := cfg.Port
 	if port == 0 {
@@ -94,16 +89,28 @@ func NewSMTP(cfg config.SMTPConfig) (*SMTP, error) {
 			port = defaultPort
 		}
 	}
-	mode, err := resolveTLSMode(cfg.TLS, port)
+	mode, err = resolveTLSMode(cfg.TLS, port)
+	if err != nil {
+		return "", "", err
+	}
+	return net.JoinHostPort(host, strconv.Itoa(port)), mode, nil
+}
+
+func NewSMTP(cfg config.SMTPConfig) (*SMTP, error) {
+	address, mode, err := Transport(cfg)
 	if err != nil {
 		return nil, err
 	}
+	if strings.TrimSpace(cfg.From) == "" {
+		return nil, errors.New("smtp: from is required")
+	}
+	host := strings.TrimSpace(cfg.Host)
 	var auth smtp.Auth
 	if cfg.Username != "" {
 		auth = smtp.PlainAuth("", cfg.Username, cfg.Password, host)
 	}
 	return &SMTP{
-		address: net.JoinHostPort(host, strconv.Itoa(port)),
+		address: address,
 		host:    host,
 		from:    cfg.From,
 		auth:    auth,

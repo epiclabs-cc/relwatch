@@ -98,11 +98,14 @@ relwatch config test-smtp --to you@example.com  # send somewhere else (repeatabl
 ```
 
 It uses the same resolved config as `serve` (honors `--config`), prints the
-recipients and server on success, and exits non-zero with the SMTP error
+recipients, resolved server address and TLS mode on success, and exits non-zero with the SMTP error
 (connection, TLS, auth, rejected recipient) on failure. It works even while
 `enabled: false`, so you can check settings before turning digests on; a note
 on stderr reminds you that `serve` won't send until you enable it. Give up
-sooner on an unreachable server with `--timeout 10s` (default `30s`).
+sooner on an unreachable server with `--timeout 10s` (positive duration, default `30s`).
+The reported `starttls (opportunistic)` mode means the client upgrades the
+connection when the server advertises STARTTLS. A successful send in this
+mode does not by itself confirm encryption.
 
 ## Troubleshooting
 
