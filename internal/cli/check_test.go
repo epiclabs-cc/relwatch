@@ -1,11 +1,27 @@
 package cli
 
 import (
+	"context"
+	"io"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"relwatch/internal/store"
 )
+
+func TestCheckFiltersWithoutTrackedProjects(t *testing.T) {
+	opts := &options{dbPath: filepath.Join(t.TempDir(), "relwatch.db")}
+	for _, tc := range []struct{ target, provider, want string }{
+		{"missing", "", "no tracked project named or referenced"},
+		{"", "github", "no tracked projects with provider"},
+	} {
+		_, err := runCheck(context.Background(), opts, tc.target, tc.provider, false, io.Discard)
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("check(%q, %q): got %v, want %q", tc.target, tc.provider, err, tc.want)
+		}
+	}
+}
 
 func projects() []store.Project {
 	return []store.Project{

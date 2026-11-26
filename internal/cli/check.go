@@ -66,7 +66,7 @@ func resolveProjects(projects []store.Project, target, provider string) ([]store
 		}
 		matches = append(matches, p)
 	}
-	if len(matches) == 0 {
+	if len(matches) == 0 && provider != "" {
 		return nil, fmt.Errorf("no tracked projects with provider %q (supported: github, gitlab, gitea)", provider)
 	}
 	if target == "" {
@@ -131,7 +131,7 @@ func checkAll(ctx context.Context, opts *options, st *store.Store, target, provi
 
 	checked := 0
 	selected := []store.Project{}
-	if len(projects) > 0 {
+	if len(projects) > 0 || target != "" || provider != "" {
 		selected, err = resolveProjects(projects, target, provider)
 		if err != nil {
 			return newReleases, err
